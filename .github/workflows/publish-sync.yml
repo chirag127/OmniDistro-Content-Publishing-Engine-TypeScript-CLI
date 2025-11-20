@@ -1,0 +1,65 @@
+name: Publish Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build TypeScript
+      run: npm run build
+
+    - name: Run Publisher
+      run: npm run publish
+      env:
+        DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+        HASHNODE_TOKEN: ${{ secrets.HASHNODE_TOKEN }}
+        MEDIUM_INTEGRATION_TOKEN: ${{ secrets.MEDIUM_INTEGRATION_TOKEN }}
+        WP_ACCESS_TOKEN: ${{ secrets.WP_ACCESS_TOKEN }}
+        WP_SITE: ${{ secrets.WP_SITE }}
+        GHOST_ADMIN_API_KEY: ${{ secrets.GHOST_ADMIN_API_KEY }}
+        GHOST_ADMIN_URL: ${{ secrets.GHOST_ADMIN_URL }}
+        BLOGGER_OAUTH_TOKEN: ${{ secrets.BLOGGER_OAUTH_TOKEN }}
+        BLOGGER_BLOG_ID: ${{ secrets.BLOGGER_BLOG_ID }}
+        TUMBLR_CONSUMER_KEY: ${{ secrets.TUMBLR_CONSUMER_KEY }}
+        TUMBLR_CONSUMER_SECRET: ${{ secrets.TUMBLR_CONSUMER_SECRET }}
+        TUMBLR_TOKEN: ${{ secrets.TUMBLR_TOKEN }}
+        TUMBLR_TOKEN_SECRET: ${{ secrets.TUMBLR_TOKEN_SECRET }}
+        TUMBLR_BLOG_IDENTIFIER: ${{ secrets.TUMBLR_BLOG_IDENTIFIER }}
+        WIX_API_TOKEN: ${{ secrets.WIX_API_TOKEN }}
+        WIX_SITE_ID: ${{ secrets.WIX_SITE_ID }}
+        PUBLISH_CONCURRENCY: ${{ secrets.PUBLISH_CONCURRENCY }}
+
+    - name: Upload logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: publish-logs
+        path: logs/
+
+    - name: Commit postmap changes
+      if: success()
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add .postmap.json
+        git diff --quiet && git diff --staged --quiet || git commit -m "Update post mappings after publish"
+        git push
